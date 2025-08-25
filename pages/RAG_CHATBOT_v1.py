@@ -1,71 +1,51 @@
 import streamlit as st
 import requests
-import uuid
+
 st.set_page_config(layout="wide") 
 
+# Ngrok API endpoint
+flask_api_url = "https://e574-34-124-133-84.ngrok-free.app/v1/chat"
+st.markdown(f"API endpoint: [{flask_api_url}]({flask_api_url})")
 
-# Set up the Streamlit interface
-page = st.title("Chabot Version 1.0")
-page = st.markdown("""
-    API endpoint: /v1/chat
-""")
+# Khởi tạo lịch sử chat
+if "chat_display" not in st.session_state:
+    st.session_state.chat_display = []
 
-st.session_state.flask_api_url_1 = "https://e574-34-124-133-84.ngrok-free.app/v1/chat"  # Set your Flask API URL here
-
-# Generate a random session ID
-session_id = str(uuid.uuid4())
-
-# Initialize chat history in session state
-if "chat_history_v1" not in st.session_state:
-    st.session_state.chat_history_v1 = []
-
-# Display the chat history using chat UI
-for message in st.session_state.chat_history_v1:
+# Hiển thị lịch sử chat
+for message in st.session_state.chat_display:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Accept user input
-if prompt := st.chat_input(key="chat", placeholder="What is up?"):
-    # Add user message to chat history
-    st.session_state.chat_history_v1.append({"role": "user", "content": prompt})
-
-    # Display user message in chat message container
+# Nhận input người dùng
+if prompt := st.chat_input(key="chat", placeholder="May I help you?"):
+    # Hiển thị message của user
+    st.session_state.chat_display.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Prepare the payload for the request
+    # Gửi request đến Flask backend
     payload = {
-        "message": {"human":prompt},
-        "context": st.session_state.chat_history_v1,
-        "sessionId": session_id,
-        "stream": True  # Enable streaming
+        "question": prompt,
+        "stream": True  # 👈 Thêm flag để backend hiểu rõ nếu muốn
     }
 
-    # Stream the response from the Flask API
+    # Nhận stream response từ Flask
     with st.chat_message("assistant"):
-        streamed_content = ""  # Initialize an empty string to concatenate chunks
-        response = requests.post(st.session_state.flask_api_url_1, json=payload, stream=True)
-
-        # Create a placeholder to update the markdown
+        streamed_content = ""
         response_placeholder = st.empty()
 
-        # Check if the request was successful
-        if response.status_code == 200:
-            
-            # TODO 4
-            # Loop through each chunk and add the content to the variable streamed_content
-            # Don't forget to use markdown to print the result
-            for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
-                if chunk:
-                    streamed_content += chunk  # Concatenate each chunk
-                    # Update the placeholder with the concatenated content in real-time
-                    response_placeholder.markdown(streamed_content)
+        try:
+            response = requests.post(flask_api_url, json=payload, stream=True)
 
+            if response.status_code == 200:
+                for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+                    if chunk:
+                        streamed_content += chunk
+                        response_placeholder.markdown(streamed_content)
+                # Lưu vào chat history
+                st.session_state.chat_display.append({"role": "assistant", "content": streamed_content})
+            else:
+                st.error(f"Lỗi từ API: {response.status_code} - {response.text}")
 
-            # Once complete, add the full response to the chat history
-            st.session_state.chat_history_v1.append({"role": "assistant", "content": streamed_content})
-        else:
-            st.error(f"Error: {response.status_code}")
-
-
-
+        except Exception as e:
+            st.error(f"Lỗi kết nối: {str(e)}")
