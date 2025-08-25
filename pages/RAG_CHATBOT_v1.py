@@ -4,7 +4,7 @@ import requests
 st.set_page_config(layout="wide") 
 
 # Ngrok API endpoint
-flask_api_url = "https://e574-34-124-133-84.ngrok-free.app/v1/chat"
+flask_api_url = "http://localhost:5000/v1/chat"
 st.markdown(f"API endpoint: [{flask_api_url}]({flask_api_url})")
 
 # Khởi tạo lịch sử chat
